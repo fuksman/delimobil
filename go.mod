@@ -1,4 +1,4 @@
-module delimobil
+module github.com/fuksman/delimobil
 
 go 1.17
 
