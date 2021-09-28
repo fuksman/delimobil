@@ -2,6 +2,7 @@ package delimobil
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -14,8 +15,21 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
+type ctxKey int
+
+var userKey ctxKey
+
 var apihost = "https://b2b-api.delitime.ru"
 var b2bhandler = "/b2b/company/"
+
+func NewContext(ctx context.Context, user *User) context.Context {
+	return context.WithValue(ctx, userKey, user)
+}
+
+func FromContext(ctx context.Context) (*User, bool) {
+	user, ok := ctx.Value(userKey).(*User)
+	return user, ok
+}
 
 type User struct {
 	Login    string `json:"login"`
