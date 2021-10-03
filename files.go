@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -22,9 +23,119 @@ type File struct {
 	MIME        string
 }
 
+type Files map[int]map[int][]File
+
+type FilesDates struct {
+	Invoices     []time.Time
+	UPDs         []time.Time
+	RentsDetails []time.Time
+}
+
+var fileTypes = [...]string{
+	"invoice",
+	"upd",
+	"rentsDetail",
+}
+
+func (company *Company) SetFilesDates() error {
+	endpoint := apihost + b2bhandler + company.ID() + "/docs"
+	body, err := MakeAPIRequest("GET", endpoint, nil, &company.Auth)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+
+	var temp struct {
+		Message map[string][]struct {
+			Type  string `json:"type"`
+			Count int    `json:"count"`
+		} `json:"message"`
+		Success bool `json:"success"`
+	}
+	json.Unmarshal(body, &temp)
+
+	var invoices, upds, rentsDetails []time.Time
+
+	for datestr, filesCounts := range temp.Message {
+		for _, fileCount := range filesCounts {
+			date, err := time.Parse("2006-01-02", datestr)
+			if err != nil {
+				return err
+			}
+			switch fileCount.Type {
+			case "invoice":
+				invoices = append(invoices, date)
+			case "upd":
+				upds = append(upds, date)
+			case "rentsDetail":
+				rentsDetails = append(rentsDetails, date)
+			default:
+				log.Println("New type of file")
+			}
+		}
+	}
+
+	if temp.Success {
+		timeSort := func(slice []time.Time) func(i int, j int) bool {
+			return func(i, j int) bool {
+				return slice[i].After(slice[j])
+			}
+		}
+		sort.Slice(invoices, timeSort(invoices))
+		sort.Slice(upds, timeSort(upds))
+		sort.Slice(rentsDetails, timeSort(rentsDetails))
+		company.FilesDates.Invoices = invoices
+		company.FilesDates.UPDs = upds
+		company.FilesDates.RentsDetails = rentsDetails
+		return nil
+	} else {
+		err := errors.New("can't retrieve information via API")
+		log.Print(err)
+		return err
+	}
+}
+
+func (company *Company) SetFiles(year, month int) error {
+	endpoint := apihost + b2bhandler + company.ID() + "/docs/" + strconv.Itoa(year) + "/" + strconv.Itoa((int)(month))
+	body, err := MakeAPIRequest("GET", endpoint, nil, &company.Auth)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+
+	var temp struct {
+		Files   []File `json:"message"`
+		Success bool   `json:"success"`
+	}
+	json.Unmarshal(body, &temp)
+
+	if temp.Success {
+		if company.Files[year] == nil {
+			company.Files[year] = make(map[int][]File)
+		}
+		company.Files[year][month] = temp.Files
+		return nil
+	} else {
+		log.Print(err)
+		return err
+	}
+}
+
+func (file *File) SetData(auth *Auth) error {
+	body, err := MakeAPIRequest("GET", apihost+file.URL, nil, auth)
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	file.Data = bytes.NewReader(body)
+	file.FileName = file.Title + ".pdf"
+	file.MIME = "application/pdf"
+	return nil
+}
+
 func (company *Company) CreateInvoice(amount float64) (invoice *File, err error) {
-	if !company.CanCreateInvoice {
-		err := errors.New("user is not allowed to create invoices")
+	if !company.CanCreateInvoices {
+		err := errors.New("it is not allowed to create invoices for " + company.Name)
 		log.Print(err)
 		return nil, err
 	}
@@ -67,55 +178,44 @@ func (company *Company) CreateInvoice(amount float64) (invoice *File, err error)
 	}
 	json.Unmarshal(body, &temp)
 
-	if temp.Success {
-		return company.LastInvoice()
-	} else {
+	if !temp.Success {
 		err := errors.New("can't retrieve information via API")
 		log.Print(err)
 		return nil, err
 	}
+
+	return company.LastFileByType("invoice")
 }
 
-func (company *Company) LastInvoice() (invoice *File, err error) {
-	month := time.Now().Month()
-	year := time.Now().Year()
-	endpoint := apihost + b2bhandler + company.ID() + "/docs/" + strconv.Itoa(year) + "/" + strconv.Itoa((int)(month))
-	body, err := MakeAPIRequest("GET", endpoint, nil, &company.Auth)
-	if err != nil {
+func (company *Company) LastFileByType(fileType string) (file *File, err error) {
+	if err = company.SetFilesDates(); err != nil {
 		log.Print(err)
 		return nil, err
 	}
 
-	var temp struct {
-		Files   []File `json:"message"`
-		Success bool   `json:"success"`
-	}
-	json.Unmarshal(body, &temp)
-
-	if !temp.Success {
+	var date time.Time
+	switch fileType {
+	case "invoice":
+		date = company.FilesDates.Invoices[0]
+	case "upd":
+		date = company.FilesDates.UPDs[0]
+	case "rentsDetail":
+		date = company.FilesDates.RentsDetails[0]
+	default:
+		err = errors.New("file type " + fileType + " doesn't exist")
 		log.Print(err)
 		return nil, err
 	}
 
-	if len(temp.Files) == 0 {
-		err := errors.New("no files in this month: " + time.Month(month).String() + " " + strconv.Itoa(year))
-		log.Print(err)
-		return nil, err
-	}
-
-	invoice = &temp.Files[0]
-	for _, file := range temp.Files {
-		if file.URL > invoice.URL {
-			invoice = &file
+	year, month := date.Year(), int(date.Month())
+	company.SetFiles(year, month)
+	file = &company.Files[year][month][0]
+	for _, f := range company.Files[year][month] {
+		if f.Type == fileType && f.URL > file.URL {
+			file = &f
 		}
 	}
-	body, err = MakeAPIRequest("GET", apihost+invoice.URL, nil, &company.Auth)
-	if err != nil {
-		log.Print(err)
-		return nil, err
-	}
-	invoice.Data = bytes.NewReader(body)
-	invoice.FileName = invoice.Title + ".pdf"
-	invoice.MIME = "application/pdf"
-	return invoice, nil
+
+	err = file.SetData(&company.Auth)
+	return file, err
 }

@@ -26,7 +26,7 @@ type Ride struct {
 	EndPointAddress   string    `json:"end_point_address"`
 }
 
-func (company *Company) SetRidesInfo(limit, page int) error {
+func (company *Company) SetRides(limit, page int) error {
 	endpoint := apihost + b2bhandler + company.ID() + "/transfers/all?limit=" + strconv.Itoa(limit) + "&page=" + strconv.Itoa(page)
 	body, err := MakeAPIRequest("GET", endpoint, nil, &company.Auth)
 	if err != nil {

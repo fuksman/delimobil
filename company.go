@@ -8,26 +8,40 @@ import (
 )
 
 type Company struct {
-	CompanyInfo
 	Auth
+	Info
+	Rides
+	Files
+	FilesDates
 }
 
-type CompanyInfo struct {
-	Id               int
-	Name             string
-	Balance          float64
-	CanCreateInvoice bool
-	MinInvoiceAmount float64
-	Rides            Rides
+type Info struct {
+	Id                int
+	Name              string
+	Balance           float64
+	CanCreateInvoices bool
+	MinInvoiceAmount  float64
 }
 
-func (company *Company) Authenticate(login, password string) error {
+// func NewCompany() *Company {
+// 	var company Company
+// 	company.Files = make(Files)
+// 	return &company
+// }
+
+func NewCompany(login, password string) *Company {
+	var company Company
+	company.login = login
+	company.password = password
+	company.Files = make(Files)
+	return &company
+}
+
+// func (company *Company) Authenticate(login, password string) error {
+func (company *Company) Authenticate() error {
 	if company.IsValid() {
 		return nil
 	}
-
-	company.Login = login
-	company.Password = password
 
 	err := company.RetrieveToken()
 	if err == nil {
@@ -49,20 +63,19 @@ func (company *Company) SetInfo() error {
 	}
 
 	var temp struct {
-		CompanyInfo struct {
-			Id               int     `json:"id"`
-			Name             string  `json:"company_name"`
-			Balance          float64 `json:"total_sum"`
-			CanCreateInvoice bool    `json:"isCreatingInvoicesAllowed"`
-			MinInvoiceAmount float64 `json:"minInvoiceAmount"`
-			Rides            Rides
+		Info struct {
+			Id                int     `json:"id"`
+			Name              string  `json:"company_name"`
+			Balance           float64 `json:"total_sum"`
+			CanCreateInvoices bool    `json:"isCreatingInvoicesAllowed"`
+			MinInvoiceAmount  float64 `json:"minInvoiceAmount"`
 		} `json:"message"`
 		Success bool `json:"success"`
 	}
 	json.Unmarshal(body, &temp)
 
 	if temp.Success {
-		company.CompanyInfo = CompanyInfo(temp.CompanyInfo)
+		company.Info = Info(temp.Info)
 		return nil
 	} else {
 		err := errors.New("can't retrieve information via API")
