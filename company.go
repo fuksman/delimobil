@@ -10,6 +10,7 @@ import (
 type Company struct {
 	Auth
 	Info
+	Employees
 	Rides
 	Files
 	FilesDates
@@ -23,12 +24,6 @@ type Info struct {
 	MinInvoiceAmount  float64
 }
 
-// func NewCompany() *Company {
-// 	var company Company
-// 	company.Files = make(Files)
-// 	return &company
-// }
-
 func NewCompany(login, password string) *Company {
 	var company Company
 	company.login = login
@@ -37,7 +32,6 @@ func NewCompany(login, password string) *Company {
 	return &company
 }
 
-// func (company *Company) Authenticate(login, password string) error {
 func (company *Company) Authenticate() error {
 	if company.IsValid() {
 		return nil
