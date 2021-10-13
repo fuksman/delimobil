@@ -33,7 +33,7 @@ func MakeAPIRequest(method string, endpoint string, reqbody io.Reader, auth *Aut
 		log.Print(err)
 		return nil, err
 	}
-	req.Header.Add("Authorization", "Bearer "+auth.Token())
+	req.Header.Add("Authorization", "Bearer "+auth.Token)
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.Do(req)

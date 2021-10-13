@@ -13,19 +13,15 @@ import (
 )
 
 type Auth struct {
-	login    string
-	password string
-	token    string
+	Login    string
+	Password string
+	Token    string
 	Company  []struct { // Comes from JWT after parsing
 		ID        float64 `json:"company_id"`
 		FirstName string  `json:"first_name"`
 		LastName  string  `json:"last_name"`
 	} `json:"user"`
 	jwt.StandardClaims
-}
-
-func (auth *Auth) Token() string {
-	return auth.token
 }
 
 func (auth *Auth) IsValid() bool {
@@ -35,8 +31,8 @@ func (auth *Auth) IsValid() bool {
 func (auth *Auth) RetrieveToken() error {
 	endpoint := apihost + "/b2b/auth"
 	userData := map[string]string{
-		"login":    auth.login,
-		"password": auth.password,
+		"login":    auth.Login,
+		"password": auth.Password,
 	}
 	jsonUser, err := json.Marshal(userData)
 	if err != nil {
@@ -81,7 +77,7 @@ func (auth *Auth) RetrieveToken() error {
 	}
 
 	if claims, ok := token.Claims.(*Auth); ok {
-		claims.token = token.Raw
+		claims.Token = token.Raw
 		*auth = *claims
 		return nil
 	} else {

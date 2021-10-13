@@ -26,8 +26,8 @@ type Info struct {
 
 func NewCompany(login, password string) *Company {
 	var company Company
-	company.login = login
-	company.password = password
+	company.Login = login
+	company.Password = password
 	company.Files = make(Files)
 	return &company
 }
