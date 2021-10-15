@@ -12,11 +12,14 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-type Auth struct {
+type Credentials struct {
 	Login    string
 	Password string
-	Token    string
-	Company  []struct { // Comes from JWT after parsing
+}
+
+type Auth struct {
+	Token   string
+	Company []struct { // Comes from JWT after parsing
 		ID        float64 `json:"company_id"`
 		FirstName string  `json:"first_name"`
 		LastName  string  `json:"last_name"`
@@ -28,11 +31,11 @@ func (auth *Auth) IsValid() bool {
 	return (auth.Valid() == nil) && auth.ExpiresAt != 0
 }
 
-func (auth *Auth) RetrieveToken() error {
+func (company *Company) RetrieveToken() error {
 	endpoint := apihost + "/b2b/auth"
 	userData := map[string]string{
-		"login":    auth.Login,
-		"password": auth.Password,
+		"login":    company.Login,
+		"password": company.Password,
 	}
 	jsonUser, err := json.Marshal(userData)
 	if err != nil {
@@ -78,7 +81,7 @@ func (auth *Auth) RetrieveToken() error {
 
 	if claims, ok := token.Claims.(*Auth); ok {
 		claims.Token = token.Raw
-		*auth = *claims
+		company.Auth = *claims
 		return nil
 	} else {
 		err := errors.New("JWT is not valid")

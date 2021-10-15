@@ -8,6 +8,7 @@ import (
 )
 
 type Company struct {
+	Credentials
 	Auth
 	Info
 	Employees
