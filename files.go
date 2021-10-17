@@ -209,10 +209,11 @@ func (company *Company) LastFileByType(fileType string) (file *File, err error) 
 
 	year, month := date.Year(), int(date.Month())
 	company.SetFiles(year, month)
-	file = &company.Files[year][month][0]
+	fileURL := ""
 	for _, f := range company.Files[year][month] {
-		if f.Type == fileType && f.URL > file.URL {
-			file = &f
+		if f.Type == fileType && f.URL > fileURL {
+			*file = f
+			fileURL = f.URL
 		}
 	}
 
