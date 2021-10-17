@@ -187,13 +187,18 @@ func (company *Company) CreateInvoice(amount float64) (invoice *File, err error)
 	return company.LastFileByType("invoice")
 }
 
-func (company *Company) LastFileByType(fileType string) (file *File, err error) {
-	if err = company.SetFilesDates(); err != nil {
+func (company *Company) LastFileByType(fileType string) (*File, error) {
+	var (
+		date    time.Time
+		file    File
+		fileURL string
+	)
+
+	if err := company.SetFilesDates(); err != nil {
 		log.Print(err)
 		return nil, err
 	}
 
-	var date time.Time
 	switch fileType {
 	case "invoice":
 		date = company.FilesDates.Invoices[0]
@@ -202,21 +207,20 @@ func (company *Company) LastFileByType(fileType string) (file *File, err error) 
 	case "rentsDetail":
 		date = company.FilesDates.RentsDetails[0]
 	default:
-		err = errors.New("file type " + fileType + " doesn't exist")
+		err := errors.New("file type " + fileType + " doesn't exist")
 		log.Print(err)
 		return nil, err
 	}
 
 	year, month := date.Year(), int(date.Month())
 	company.SetFiles(year, month)
-	fileURL := ""
 	for _, f := range company.Files[year][month] {
 		if f.Type == fileType && f.URL > fileURL {
-			*file = f
+			file = f
 			fileURL = f.URL
 		}
 	}
 
-	err = file.SetData(&company.Auth)
-	return file, err
+	err := file.SetData(&company.Auth)
+	return &file, err
 }
